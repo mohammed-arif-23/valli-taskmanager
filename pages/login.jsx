@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { toast } from 'react-toastify';
+import Link from 'next/link';
 
 export default function Login() {
   const router = useRouter();
@@ -117,6 +118,15 @@ export default function Login() {
               'Login'
             )}
           </button>
+
+          <div className="text-center mt-4 fade-in" style={{ animationDelay: '0.3s' }}>
+            <p className="text-gray-600">
+              Don't have an account?{' '}
+              <Link href="/register" className="text-palatinate hover:text-dark-purple font-semibold transition-smooth">
+                Register here
+              </Link>
+            </p>
+          </div>
         </form>
       </div>
     </div>
