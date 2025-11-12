@@ -33,6 +33,11 @@ const taskSchema = new mongoose.Schema({
     ref: 'Department',
     required: true,
   },
+  assigned_to: {
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'User',
+    default: [], // Empty array means assigned to all in department
+  },
   recurrence: {
     type: mongoose.Schema.Types.Mixed,
     default: null,

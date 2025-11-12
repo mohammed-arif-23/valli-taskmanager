@@ -24,6 +24,10 @@ async function handler(req, res) {
     // Build query
     const query = {
       department_id: user.department_id,
+      $or: [
+        { assigned_to: { $size: 0 } }, // Assigned to all in department
+        { assigned_to: req.user.userId }, // Specifically assigned to this user
+      ],
     };
 
     // Filter archived tasks unless requested

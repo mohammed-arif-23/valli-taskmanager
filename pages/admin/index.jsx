@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { toast } from 'react-toastify';
+import { utcToIstDisplay } from '@/lib/date';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -9,6 +10,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [filterRole, setFilterRole] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedStaff, setExpandedStaff] = useState({});
+  const [staffSubmissions, setStaffSubmissions] = useState({});
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -65,6 +68,35 @@ export default function AdminDashboard() {
     if (percent >= 66) return 'text-green-600 bg-green-50';
     if (percent >= 33) return 'text-orange-600 bg-orange-50';
     return 'text-red-600 bg-red-50';
+  };
+
+  const toggleStaffExpand = async (staffId) => {
+    const isExpanded = expandedStaff[staffId];
+    
+    setExpandedStaff({
+      ...expandedStaff,
+      [staffId]: !isExpanded,
+    });
+
+    // Fetch submissions if not already loaded
+    if (!isExpanded && !staffSubmissions[staffId]) {
+      const token = localStorage.getItem('accessToken');
+      try {
+        const res = await fetch(`/api/admin/staff/${staffId}/submissions`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setStaffSubmissions({
+            ...staffSubmissions,
+            [staffId]: data.submissions || [],
+          });
+        }
+      } catch (error) {
+        toast.error('Failed to load staff submissions');
+      }
+    }
   };
 
   if (loading) {

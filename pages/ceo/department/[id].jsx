@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { toast } from 'react-toastify';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { utcToIstDisplay } from '@/lib/date';
 
 export default function DepartmentDetail() {
   const router = useRouter();
@@ -10,6 +11,8 @@ export default function DepartmentDetail() {
   const [staff, setStaff] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [expandedStaff, setExpandedStaff] = useState({});
+  const [staffSubmissions, setStaffSubmissions] = useState({});
 
   useEffect(() => {
     if (!id) return;
@@ -68,6 +71,35 @@ export default function DepartmentDetail() {
       toast.error('Failed to load department details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleStaffExpand = async (staffId) => {
+    const isExpanded = expandedStaff[staffId];
+    
+    setExpandedStaff({
+      ...expandedStaff,
+      [staffId]: !isExpanded,
+    });
+
+    // Fetch submissions if not already loaded
+    if (!isExpanded && !staffSubmissions[staffId]) {
+      const token = localStorage.getItem('accessToken');
+      try {
+        const res = await fetch(`/api/ceo/users/${staffId}/submissions`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setStaffSubmissions({
+            ...staffSubmissions,
+            [staffId]: data.submissions || [],
+          });
+        }
+      } catch (error) {
+        toast.error('Failed to load staff submissions');
+      }
     }
   };
 
@@ -178,32 +210,125 @@ export default function DepartmentDetail() {
                 </thead>
                 <tbody>
                   {staff.map((member) => (
-                    <tr key={member.id} className="border-b border-gray-200 hover:bg-mint-cream transition-smooth">
-                      <td className="py-4 px-4 font-medium text-dark-purple">{member.name}</td>
-                      <td className="py-4 px-4 text-gray-600">{member.email}</td>
-                      <td className="py-4 px-4">
-                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-palatinate text-white">
-                          {member.role}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                          (member.performance?.percent || 0) >= 66 ? 'text-green-600 bg-green-50' :
-                          (member.performance?.percent || 0) >= 33 ? 'text-orange-600 bg-orange-50' :
-                          'text-red-600 bg-red-50'
-                        }`}>
-                          {member.performance?.percent || 0}%
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <div className="font-semibold text-quinacridone-magenta">
-                          {member.performance?.received_points || 0}
-                        </div>
-                        <div className="text-gray-500 text-xs">
-                          / {member.performance?.allocated_points || 0}
-                        </div>
-                      </td>
-                    </tr>
+                    <>
+                      <tr 
+                        key={member.id} 
+                        className="border-b border-gray-200 hover:bg-mint-cream transition-smooth cursor-pointer"
+                        onClick={() => toggleStaffExpand(member.id)}
+                      >
+                        <td className="py-4 px-4 font-medium text-dark-purple">
+                          <div className="flex items-center gap-2">
+                            <svg
+                              className={`w-4 h-4 transition-transform ${expandedStaff[member.id] ? 'rotate-90' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                            {member.name}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-gray-600">{member.email}</td>
+                        <td className="py-4 px-4">
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-palatinate text-white">
+                            {member.role}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+                            (member.performance?.percent || 0) >= 66 ? 'text-green-600 bg-green-50' :
+                            (member.performance?.percent || 0) >= 33 ? 'text-orange-600 bg-orange-50' :
+                            'text-red-600 bg-red-50'
+                          }`}>
+                            {member.performance?.percent || 0}%
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="font-semibold text-quinacridone-magenta">
+                            {member.performance?.received_points || 0}
+                          </div>
+                          <div className="text-gray-500 text-xs">
+                            / {member.performance?.allocated_points || 0}
+                          </div>
+                        </td>
+                      </tr>
+                      {expandedStaff[member.id] && (
+                        <tr key={`${member.id}-details`}>
+                          <td colSpan="5" className="bg-gray-50 p-6">
+                            <div className="fade-in">
+                              <h4 className="text-lg font-bold text-dark-purple mb-4">Task Submission History</h4>
+                              {!staffSubmissions[member.id] ? (
+                                <div className="flex justify-center py-4">
+                                  <div className="spinner"></div>
+                                </div>
+                              ) : staffSubmissions[member.id].length === 0 ? (
+                                <p className="text-center text-gray-500 py-4">No submissions yet</p>
+                              ) : (
+                                <div className="space-y-3 max-h-96 overflow-y-auto">
+                                  {staffSubmissions[member.id].map((submission) => (
+                                    <div key={submission._id} className="bg-white rounded-lg p-4 shadow">
+                                      <div className="flex justify-between items-start mb-2">
+                                        <div className="flex-1">
+                                          <h5 className="font-bold text-dark-purple">{submission.task_id?.title || 'Task'}</h5>
+                                          <p className="text-sm text-gray-600 mt-1">{submission.task_id?.description || ''}</p>
+                                        </div>
+                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                          submission.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                          submission.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
+                                          submission.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                          'bg-gray-100 text-gray-700'
+                                        }`}>
+                                          {submission.status}
+                                        </span>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-4 mt-3 text-sm">
+                                        <div>
+                                          <span className="text-gray-600">Points Awarded:</span>
+                                          <span className="ml-2 font-bold text-quinacridone-magenta">
+                                            {submission.points_awarded} / {submission.task_id?.default_points || 0}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-gray-600">Submitted:</span>
+                                          <span className="ml-2 font-semibold text-dark-purple">
+                                            {utcToIstDisplay(new Date(submission.created_at))}
+                                          </span>
+                                        </div>
+                                        {submission.status === 'not_started' && submission.not_started_reason && (
+                                          <div className="col-span-2">
+                                            <span className="text-gray-600">Reason:</span>
+                                            <span className="ml-2 text-gray-800">{submission.not_started_reason}</span>
+                                          </div>
+                                        )}
+                                        {submission.status === 'rejected' && submission.rejection_reason && (
+                                          <div className="col-span-2">
+                                            <span className="text-red-600 font-semibold">Rejection Reason:</span>
+                                            <span className="ml-2 text-gray-800">{submission.rejection_reason}</span>
+                                          </div>
+                                        )}
+                                        {submission.evidence_url && (
+                                          <div className="col-span-2">
+                                            <a 
+                                              href={submission.evidence_url} 
+                                              target="_blank" 
+                                              rel="noopener noreferrer"
+                                              className="text-palatinate hover:text-dark-purple font-semibold"
+                                            >
+                                              View Evidence →
+                                            </a>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
               </table>

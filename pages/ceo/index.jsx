@@ -7,11 +7,8 @@ export default function CEODashboard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [departments, setDepartments] = useState([]);
-  const [todos, setTodos] = useState([]);
   const [recentSubmissions, setRecentSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showTodoForm, setShowTodoForm] = useState(false);
-  const [newTodo, setNewTodo] = useState({ title: '', description: '', priority: 'medium', due_date: '' });
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -35,11 +32,8 @@ export default function CEODashboard() {
 
   const fetchData = async (token) => {
     try {
-      const [deptRes, todoRes, submissionsRes] = await Promise.all([
+      const [deptRes, submissionsRes] = await Promise.all([
         fetch('/api/ceo/departments', {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch('/api/ceo/todos', {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch('/api/ceo/submissions/recent?limit=10', {
@@ -48,7 +42,7 @@ export default function CEODashboard() {
       ]);
 
       // Check for authentication errors
-      if (deptRes.status === 401 || todoRes.status === 401 || submissionsRes.status === 401) {
+      if (deptRes.status === 401 || submissionsRes.status === 401) {
         toast.error('Session expired. Please login again.');
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
@@ -63,13 +57,6 @@ export default function CEODashboard() {
         console.error('Departments fetch failed:', await deptRes.text());
       }
 
-      if (todoRes.ok) {
-        const data = await todoRes.json();
-        setTodos(data.todos || []);
-      } else {
-        console.error('Todos fetch failed:', await todoRes.text());
-      }
-
       if (submissionsRes.ok) {
         const data = await submissionsRes.json();
         setRecentSubmissions(data.submissions || []);
@@ -81,71 +68,6 @@ export default function CEODashboard() {
       toast.error('Failed to load data');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCreateTodo = async (e) => {
-    e.preventDefault();
-    const token = localStorage.getItem('accessToken');
-
-    try {
-      const res = await fetch('/api/ceo/todos', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(newTodo),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setTodos([data.todo, ...todos]);
-        setNewTodo({ title: '', description: '', priority: 'medium', due_date: '' });
-        setShowTodoForm(false);
-        toast.success('Todo created!');
-      }
-    } catch (error) {
-      toast.error('Failed to create todo');
-    }
-  };
-
-  const handleToggleTodo = async (id, completed) => {
-    const token = localStorage.getItem('accessToken');
-
-    try {
-      const res = await fetch(`/api/ceo/todos/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ completed: !completed }),
-      });
-
-      if (res.ok) {
-        setTodos(todos.map((t) => (t._id === id ? { ...t, completed: !completed } : t)));
-      }
-    } catch (error) {
-      toast.error('Failed to update todo');
-    }
-  };
-
-  const handleDeleteTodo = async (id) => {
-    const token = localStorage.getItem('accessToken');
-
-    try {
-      const res = await fetch(`/api/ceo/todos/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        setTodos(todos.filter((t) => t._id !== id));
-        toast.success('Todo deleted');
-      }
-    } catch (error) {
-      toast.error('Failed to delete todo');
     }
   };
 
@@ -215,9 +137,23 @@ export default function CEODashboard() {
           </div>
 
           <div
-            onClick={() => router.push('/ceo/tasks')}
+            onClick={() => router.push('/ceo/calendar')}
             className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover-lift card-interactive fade-in"
             style={{ animationDelay: '0.1s' }}
+          >
+            <div className="w-12 h-12 gradient-primary rounded-lg flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold mb-2 text-dark-purple">Calendar & Tasks</h2>
+            <p className="text-gray-600 text-sm">Manage your schedule and personal tasks</p>
+          </div>
+
+          <div
+            onClick={() => router.push('/ceo/tasks')}
+            className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover-lift card-interactive fade-in"
+            style={{ animationDelay: '0.2s' }}
           >
             <div className="w-12 h-12 gradient-primary rounded-lg flex items-center justify-center mb-4">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -231,7 +167,7 @@ export default function CEODashboard() {
           <div
             onClick={() => router.push('/ceo/submissions')}
             className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover-lift card-interactive fade-in"
-            style={{ animationDelay: '0.2s' }}
+            style={{ animationDelay: '0.3s' }}
           >
             <div className="w-12 h-12 gradient-primary rounded-lg flex items-center justify-center mb-4">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,11 +177,13 @@ export default function CEODashboard() {
             <h2 className="text-lg font-semibold mb-2 text-dark-purple">Manage Submissions</h2>
             <p className="text-gray-600 text-sm">View and delete task submissions</p>
           </div>
+        </div>
 
+        {/* Additional Quick Actions */}
+        <div className="grid gap-6 md:grid-cols-4 mb-8">
           <div
             onClick={() => router.push('/admin/audit')}
             className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover-lift card-interactive fade-in"
-            style={{ animationDelay: '0.3s' }}
           >
             <div className="w-12 h-12 gradient-primary rounded-lg flex items-center justify-center mb-4">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -459,127 +397,6 @@ export default function CEODashboard() {
               </table>
             </div>
           )}
-        </div>
-
-        {/* Personal TODO App */}
-        <div className="bg-white rounded-xl shadow-lg p-6 scale-in" style={{ animationDelay: '0.3s' }}>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-dark-purple">Personal To-Do List</h2>
-            <button
-              onClick={() => setShowTodoForm(!showTodoForm)}
-              className="gradient-primary text-white px-4 py-2 rounded-lg hover-lift btn-ripple micro-bounce"
-            >
-              {showTodoForm ? 'Cancel' : '+ Add Todo'}
-            </button>
-          </div>
-
-          {showTodoForm && (
-            <form onSubmit={handleCreateTodo} className="mb-6 p-4 bg-mint-cream rounded-lg fade-in">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-dark-purple mb-1">Title *</label>
-                  <input
-                    type="text"
-                    required
-                    value={newTodo.title}
-                    onChange={(e) => setNewTodo({ ...newTodo, title: e.target.value })}
-                    className="w-full px-3 py-2 border-2 border-quinacridone-magenta rounded-lg focus:outline-none focus:ring-2 focus:ring-palatinate"
-                    placeholder="Enter todo title..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-dark-purple mb-1">Priority</label>
-                  <select
-                    value={newTodo.priority}
-                    onChange={(e) => setNewTodo({ ...newTodo, priority: e.target.value })}
-                    className="w-full px-3 py-2 border-2 border-quinacridone-magenta rounded-lg focus:outline-none focus:ring-2 focus:ring-palatinate"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-dark-purple mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    value={newTodo.due_date}
-                    onChange={(e) => setNewTodo({ ...newTodo, due_date: e.target.value })}
-                    className="w-full px-3 py-2 border-2 border-quinacridone-magenta rounded-lg focus:outline-none focus:ring-2 focus:ring-palatinate"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-dark-purple mb-1">Description</label>
-                  <input
-                    type="text"
-                    value={newTodo.description}
-                    onChange={(e) => setNewTodo({ ...newTodo, description: e.target.value })}
-                    className="w-full px-3 py-2 border-2 border-quinacridone-magenta rounded-lg focus:outline-none focus:ring-2 focus:ring-palatinate"
-                    placeholder="Optional description..."
-                  />
-                </div>
-              </div>
-              <button
-                type="submit"
-                className="mt-4 gradient-primary text-white px-6 py-2 rounded-lg hover-lift btn-ripple"
-              >
-                Create Todo
-              </button>
-            </form>
-          )}
-
-          <div className="space-y-3">
-            {todos.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">No todos yet. Create one to get started!</p>
-            ) : (
-              todos.map((todo, index) => (
-                <div
-                  key={todo._id}
-                  className="flex items-center gap-4 p-4 bg-mint-cream rounded-lg hover:shadow-md transition-smooth stagger-item"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={todo.completed}
-                    onChange={() => handleToggleTodo(todo._id, todo.completed)}
-                    className="w-5 h-5 text-quinacridone-magenta rounded focus:ring-2 focus:ring-palatinate cursor-pointer"
-                  />
-                  <div className="flex-1">
-                    <h3 className={`font-semibold ${todo.completed ? 'line-through text-gray-500' : 'text-dark-purple'}`}>
-                      {todo.title}
-                    </h3>
-                    {todo.description && (
-                      <p className="text-sm text-gray-600">{todo.description}</p>
-                    )}
-                    {todo.due_date && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Due: {new Date(todo.due_date).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      todo.priority === 'high'
-                        ? 'bg-red-100 text-red-700'
-                        : todo.priority === 'medium'
-                        ? 'bg-orange-100 text-orange-700'
-                        : 'bg-green-100 text-green-700'
-                    }`}
-                  >
-                    {todo.priority}
-                  </span>
-                  <button
-                    onClick={() => handleDeleteTodo(todo._id)}
-                    className="text-red-600 hover:text-red-800 transition-smooth micro-bounce"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
         </div>
       </main>
     </div>

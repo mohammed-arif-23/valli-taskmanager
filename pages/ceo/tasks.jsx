@@ -7,6 +7,7 @@ export default function CEOTasks() {
   const router = useRouter();
   const [tasks, setTasks] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [departmentUsers, setDepartmentUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -18,6 +19,8 @@ export default function CEOTasks() {
     default_points: '',
     due_date_ist: '',
     department_id: '',
+    assigned_to: [],
+    assign_to_all: true,
     allow_late_submission: false,
   });
 
@@ -63,6 +66,31 @@ export default function CEOTasks() {
     }
   };
 
+  const fetchDepartmentUsers = async (departmentId) => {
+    const token = localStorage.getItem('accessToken');
+    try {
+      const res = await fetch(`/api/ceo/departments/${departmentId}/staff`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setDepartmentUsers(data.staff || []);
+      }
+    } catch (error) {
+      toast.error('Failed to load department users');
+    }
+  };
+
+  const handleDepartmentChange = (departmentId) => {
+    setFormData({ ...formData, department_id: departmentId, assigned_to: [], assign_to_all: true });
+    if (departmentId) {
+      fetchDepartmentUsers(departmentId);
+    } else {
+      setDepartmentUsers([]);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('accessToken');
@@ -71,13 +99,20 @@ export default function CEOTasks() {
       const url = editingTask ? `/api/ceo/tasks/${editingTask._id}` : '/api/ceo/tasks';
       const method = editingTask ? 'PATCH' : 'POST';
 
+      // Prepare data - if assign_to_all is true, send empty array
+      const submitData = {
+        ...formData,
+        assigned_to: formData.assign_to_all ? [] : formData.assigned_to,
+      };
+      delete submitData.assign_to_all;
+
       const res = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       });
 
       if (res.ok) {
@@ -92,8 +127,11 @@ export default function CEOTasks() {
           default_points: '',
           due_date_ist: '',
           department_id: '',
+          assigned_to: [],
+          assign_to_all: true,
           allow_late_submission: false,
         });
+        setDepartmentUsers([]);
         fetchData(token);
       } else {
         const data = await res.json();
@@ -111,6 +149,10 @@ export default function CEOTasks() {
     const istDate = new Date(dueDate.getTime() + (5.5 * 60 * 60 * 1000));
     const formattedDate = istDate.toISOString().slice(0, 16);
 
+    const departmentId = task.department_id?._id || task.department_id;
+    const assignedTo = task.assigned_to || [];
+    const assignToAll = assignedTo.length === 0;
+
     setFormData({
       title: task.title,
       description: task.description,
@@ -118,9 +160,16 @@ export default function CEOTasks() {
       priority: task.priority,
       default_points: task.default_points,
       due_date_ist: formattedDate,
-      department_id: task.department_id?._id || task.department_id,
+      department_id: departmentId,
+      assigned_to: assignedTo,
+      assign_to_all: assignToAll,
       allow_late_submission: task.allow_late_submission,
     });
+    
+    if (departmentId) {
+      fetchDepartmentUsers(departmentId);
+    }
+    
     setShowForm(true);
   };
 
@@ -203,8 +252,11 @@ export default function CEOTasks() {
                   default_points: '',
                   due_date_ist: '',
                   department_id: '',
+                  assigned_to: [],
+                  assign_to_all: true,
                   allow_late_submission: false,
                 });
+                setDepartmentUsers([]);
               }}
               className="gradient-primary text-white px-6 py-2 rounded-lg hover-lift btn-ripple"
             >
@@ -292,7 +344,7 @@ export default function CEOTasks() {
                   <select
                     required
                     value={formData.department_id}
-                    onChange={(e) => setFormData({ ...formData, department_id: e.target.value })}
+                    onChange={(e) => handleDepartmentChange(e.target.value)}
                     className="w-full px-4 py-3 border-2 border-quinacridone-magenta rounded-lg focus:outline-none focus:ring-2 focus:ring-palatinate"
                   >
                     <option value="">Select Department</option>
@@ -314,6 +366,66 @@ export default function CEOTasks() {
                     <span className="text-sm font-bold text-dark-purple">Allow Late Submission</span>
                   </label>
                 </div>
+                {formData.department_id && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-bold text-dark-purple mb-2">Assign To</label>
+                    <div className="space-y-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          checked={formData.assign_to_all}
+                          onChange={() => setFormData({ ...formData, assign_to_all: true, assigned_to: [] })}
+                          className="w-4 h-4 text-quinacridone-magenta"
+                        />
+                        <span className="text-sm font-semibold text-dark-purple">All staff in department</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          checked={!formData.assign_to_all}
+                          onChange={() => setFormData({ ...formData, assign_to_all: false })}
+                          className="w-4 h-4 text-quinacridone-magenta"
+                        />
+                        <span className="text-sm font-semibold text-dark-purple">Specific staff members</span>
+                      </label>
+                      {!formData.assign_to_all && (
+                        <div className="ml-6 mt-2 p-4 bg-white rounded-lg border-2 border-quinacridone-magenta max-h-48 overflow-y-auto">
+                          {departmentUsers.length === 0 ? (
+                            <p className="text-sm text-gray-500">No staff members in this department</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {departmentUsers.map((user) => (
+                                <label key={user.id} className="flex items-center gap-2 cursor-pointer hover:bg-mint-cream p-2 rounded">
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.assigned_to.includes(user.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setFormData({
+                                          ...formData,
+                                          assigned_to: [...formData.assigned_to, user.id],
+                                        });
+                                      } else {
+                                        setFormData({
+                                          ...formData,
+                                          assigned_to: formData.assigned_to.filter((id) => id !== user.id),
+                                        });
+                                      }
+                                    }}
+                                    className="w-4 h-4 text-quinacridone-magenta rounded"
+                                  />
+                                  <span className="text-sm text-dark-purple">
+                                    {user.name} ({user.email})
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex gap-4 mt-6">
                 <button
@@ -342,6 +454,7 @@ export default function CEOTasks() {
                 <tr className="border-b-2 border-quinacridone-magenta">
                   <th className="text-left py-3 px-4 text-dark-purple font-semibold">Title</th>
                   <th className="text-left py-3 px-4 text-dark-purple font-semibold">Department</th>
+                  <th className="text-left py-3 px-4 text-dark-purple font-semibold">Assigned To</th>
                   <th className="text-left py-3 px-4 text-dark-purple font-semibold">Type</th>
                   <th className="text-left py-3 px-4 text-dark-purple font-semibold">Priority</th>
                   <th className="text-center py-3 px-4 text-dark-purple font-semibold">Points</th>
@@ -355,6 +468,13 @@ export default function CEOTasks() {
                   <tr key={task._id} className="border-b border-gray-200 hover:bg-mint-cream transition-smooth">
                     <td className="py-4 px-4 font-medium text-dark-purple">{task.title}</td>
                     <td className="py-4 px-4 text-gray-600">{task.department_id?.name || 'N/A'}</td>
+                    <td className="py-4 px-4 text-sm text-gray-600">
+                      {!task.assigned_to || task.assigned_to.length === 0 ? (
+                        <span className="text-green-600 font-semibold">All Staff</span>
+                      ) : (
+                        <span className="text-palatinate font-semibold">{task.assigned_to.length} specific</span>
+                      )}
+                    </td>
                     <td className="py-4 px-4">
                       <span className="px-3 py-1 rounded-full text-xs font-semibold bg-palatinate text-white">
                         {task.type}

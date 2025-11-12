@@ -18,13 +18,14 @@ async function handler(req, res) {
       const tasks = await Task.find(query)
         .populate('department_id', 'name')
         .populate('created_by', 'name email')
+        .populate('assigned_to', 'name email')
         .sort({ created_at: -1 });
 
       return res.status(200).json({ tasks });
     }
 
     if (req.method === 'POST') {
-      const { title, description, type, priority, default_points, due_date_ist, department_id, allow_late_submission } = req.body;
+      const { title, description, type, priority, default_points, due_date_ist, department_id, assigned_to, allow_late_submission } = req.body;
 
       // Validation
       if (!title || !description || !type || !priority || !default_points || !due_date_ist || !department_id) {
@@ -45,6 +46,7 @@ async function handler(req, res) {
         default_points,
         due_at_utc: dueAtUtc,
         department_id,
+        assigned_to: assigned_to || [], // Empty array means all users in department
         allow_late_submission: allow_late_submission || false,
         created_by: req.user.userId,
       });
