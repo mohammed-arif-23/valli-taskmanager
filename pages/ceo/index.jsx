@@ -165,6 +165,20 @@ export default function CEODashboard() {
           </div>
 
           <div
+            onClick={() => router.push('/ceo/templates')}
+            className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover-lift card-interactive fade-in"
+            style={{ animationDelay: '0.25s' }}
+          >
+            <div className="w-12 h-12 gradient-primary rounded-lg flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold mb-2 text-dark-purple">Daily Job Descriptions</h2>
+            <p className="text-gray-600 text-sm">Define fixed daily tasks and items</p>
+          </div>
+
+          <div
             onClick={() => router.push('/ceo/submissions')}
             className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover-lift card-interactive fade-in"
             style={{ animationDelay: '0.3s' }}
@@ -179,21 +193,6 @@ export default function CEODashboard() {
           </div>
         </div>
 
-        {/* Additional Quick Actions */}
-        <div className="grid gap-6 md:grid-cols-4 mb-8">
-          <div
-            onClick={() => router.push('/admin/audit')}
-            className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover-lift card-interactive fade-in"
-          >
-            <div className="w-12 h-12 gradient-primary rounded-lg flex items-center justify-center mb-4">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <h2 className="text-lg font-semibold mb-2 text-dark-purple">Audit Logs</h2>
-            <p className="text-gray-600 text-sm">View all system activity logs</p>
-          </div>
-        </div>
 
         {/* Overall Statistics */}
         <div className="grid gap-6 md:grid-cols-4 mb-8">

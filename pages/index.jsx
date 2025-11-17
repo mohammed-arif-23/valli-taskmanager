@@ -4,6 +4,8 @@ import Meter from '@/components/Meter';
 import TaskCard from '@/components/TaskCard';
 import { SkeletonCard, SkeletonMeter } from '@/components/SkeletonLoader';
 import { toast } from 'react-toastify';
+import { IST_TIMEZONE } from '@/lib/date';
+import { utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -17,6 +19,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [viewMode, setViewMode] = useState('all'); // all | daily | overdueToday
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -261,6 +264,26 @@ export default function Dashboard() {
 
             {/* Search and Filters */}
             <div className="mb-6 space-y-3">
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setViewMode('all')}
+                  className={`px-3 py-1 rounded-full text-sm font-semibold ${viewMode === 'all' ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setViewMode('daily')}
+                  className={`px-3 py-1 rounded-full text-sm font-semibold ${viewMode === 'daily' ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+                >
+                  Daily Tasks (Today)
+                </button>
+                <button
+                  onClick={() => setViewMode('overdueToday')}
+                  className={`px-3 py-1 rounded-full text-sm font-semibold ${viewMode === 'overdueToday' ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+                >
+                  Overdue Today
+                </button>
+              </div>
               <div className="relative">
                 <input
                   type="text"
@@ -312,6 +335,23 @@ export default function Dashboard() {
             {(() => {
               // Apply filters
               let filteredTasks = tasks.filter(task => {
+                // Daily/Overdue Today filters based on occurrence_date == today's IST midnight
+                if (viewMode !== 'all') {
+                  const now = new Date();
+                  const istNow = utcToZonedTime(now, IST_TIMEZONE);
+                  const istMidnight = new Date(istNow.getFullYear(), istNow.getMonth(), istNow.getDate(), 0, 0, 0, 0);
+                  const todayIstMidnightUtc = zonedTimeToUtc(istMidnight, IST_TIMEZONE);
+
+                  const occ = task.occurrence_date ? new Date(task.occurrence_date) : null;
+                  const isTodayFixed = occ && occ.getTime() === todayIstMidnightUtc.getTime();
+                  const submission = submissions[task._id];
+                  const isCompleted = submission?.status === 'completed';
+                  const isOverdue = new Date(task.due_at_utc) < now && !isCompleted;
+
+                  if (viewMode === 'daily' && !isTodayFixed) return false;
+                  if (viewMode === 'overdueToday' && !(isTodayFixed && isOverdue)) return false;
+                }
+
                 // Search filter
                 if (searchQuery) {
                   const query = searchQuery.toLowerCase();
@@ -339,27 +379,71 @@ export default function Dashboard() {
                 return true;
               });
 
-              return filteredTasks.length === 0 ? (
-                <div className="text-center py-12">
-                  <svg
-                    className="w-16 h-16 text-gray-400 mx-auto mb-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                  <p className="text-gray-500 text-lg">No tasks found</p>
-                  {(searchQuery || filterPriority !== 'all' || filterStatus !== 'all') && (
-                    <p className="text-gray-400 text-sm mt-2">Try adjusting your filters</p>
-                  )}
-                </div>
-              ) : (
+              if (filteredTasks.length === 0) {
+                return (
+                  <div className="text-center py-12">
+                    <svg
+                      className="w-16 h-16 text-gray-400 mx-auto mb-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    <p className="text-gray-500 text-lg">No tasks found</p>
+                    {(searchQuery || filterPriority !== 'all' || filterStatus !== 'all') && (
+                      <p className="text-gray-400 text-sm mt-2">Try adjusting your filters</p>
+                    )}
+                  </div>
+                );
+              }
+
+              // In Daily view, group tasks by source_template_id to render a checklist with progress
+              if (viewMode === 'daily') {
+                const groups = {};
+                for (const t of filteredTasks) {
+                  const key = t.source_template_id?._id || t.source_template_id || 'ungrouped';
+                  if (!groups[key]) {
+                    groups[key] = { title: t.source_template_id?.title || 'Misc Tasks', items: [] };
+                  }
+                  groups[key].items.push(t);
+                }
+
+                const groupEntries = Object.entries(groups);
+                return (
+                  <div className="space-y-6">
+                    {groupEntries.map(([gid, group], gi) => {
+                      // Progress: N completed out of M
+                      const total = group.items.length;
+                      const completed = group.items.filter((it) => submissions[it._id]?.status === 'completed').length;
+                      const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+                      return (
+                        <div key={gid} className="border-2 border-quinacridone-magenta rounded-xl p-4 bg-white stagger-item" style={{ animationDelay: `${gi * 0.05}s` }}>
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-xl font-bold text-dark-purple">{group.title}</h3>
+                            <div className="text-sm text-gray-600 font-medium">{completed} / {total} completed ({percent}%)</div>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-1 md:grid-cols-2">
+                            {group.items.map((task, index) => (
+                              <div key={task._id} className="stagger-item" style={{ animationDelay: `${index * 0.03}s` }}>
+                                <TaskCard task={task} submission={submissions[task._id]} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              }
+
+              // Non-daily views: render flat list
+              return (
                 <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
                   {filteredTasks.map((task, index) => (
                     <div

@@ -1,16 +1,11 @@
-import dbConnect from '@/lib/db';
-import TaskTemplate from '@/models/TaskTemplate';
-import { verifyToken } from '@/lib/auth';
-import { logAudit } from '@/lib/audit';
+const { connectDB } = require('@/lib/db');
+const TaskTemplate = require('@/models/TaskTemplate');
+const { requireAuth, requireRole } = require('@/lib/auth');
+const { createAuditLog } = require('@/lib/audit');
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   try {
-    const decoded = verifyToken(req);
-    if (!decoded || !['administrator', 'ceo', 'manager'].includes(decoded.role)) {
-      return res.status(403).json({ error: { message: 'Access denied' } });
-    }
-
-    await dbConnect();
+    await connectDB();
 
     if (req.method === 'GET') {
       const templates = await TaskTemplate.find()
@@ -21,10 +16,30 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { name, title, description, type, priority, default_points, allow_late_submission } = req.body;
+      const {
+        name,
+        title,
+        description,
+        type,
+        priority,
+        default_points,
+        allow_late_submission,
+        frequency,
+        due_time_ist,
+        applies_to_roles,
+        department_id,
+        assignment_mode,
+        days_of_week,
+        active,
+      } = req.body;
 
       if (!name || !title || !description || !type || !priority || !default_points) {
         return res.status(400).json({ error: { message: 'Missing required fields' } });
+      }
+
+      // Soft validation: if daily template, due_time_ist is required
+      if (frequency === 'daily' && !due_time_ist) {
+        return res.status(400).json({ error: { message: "due_time_ist is required when frequency is 'daily'" } });
       }
 
       const template = await TaskTemplate.create({
@@ -35,15 +50,19 @@ export default async function handler(req, res) {
         priority,
         default_points,
         allow_late_submission: allow_late_submission || false,
-        created_by: decoded.userId,
+        frequency: frequency || 'none',
+        due_time_ist: due_time_ist || null,
+        applies_to_roles: Array.isArray(applies_to_roles) ? applies_to_roles : [],
+        department_id: department_id === '' ? null : (department_id || null),
+        assignment_mode: assignment_mode || 'each_staff',
+        days_of_week: Array.isArray(days_of_week) ? days_of_week : [],
+        active: active !== undefined ? !!active : true,
+        created_by: req.user.userId,
       });
 
-      await logAudit({
-        user_id: decoded.userId,
-        action: 'create_template',
-        resource_type: 'task_template',
-        resource_id: template._id,
-        details: { name, title },
+      await createAuditLog('task_template', template._id, 'create', req.user.userId, {
+        name,
+        title,
       });
 
       return res.status(201).json({ template });
@@ -55,3 +74,5 @@ export default async function handler(req, res) {
     res.status(500).json({ error: { message: 'Internal server error' } });
   }
 }
+
+export default requireAuth(requireRole('administrator', 'ceo', 'manager')(handler));

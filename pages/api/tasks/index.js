@@ -42,9 +42,10 @@ async function handler(req, res) {
 
     const limitNum = Math.min(parseInt(limit), 50);
 
-    // Fetch tasks with minimal fields
+    // Fetch tasks with fields required for Daily/Overdue filters
     const tasks = await Task.find(query)
-      .select('title type priority default_points due_at_utc is_archived')
+      .select('title type priority default_points due_at_utc is_archived occurrence_date source_template_id source_template_item_id description')
+      .populate('source_template_id', 'title')
       .sort({ _id: 1 })
       .limit(limitNum + 1);
 

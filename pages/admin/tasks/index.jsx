@@ -8,6 +8,7 @@ export default function AdminTasks() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterArchived, setFilterArchived] = useState('false');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -42,6 +43,30 @@ export default function AdminTasks() {
       toast.error('Failed to load tasks');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGenerateDaily = async () => {
+    const token = localStorage.getItem('accessToken');
+    setBusy(true);
+    try {
+      const res = await fetch('/api/admin/tasks/generate-daily', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Failed to generate daily tasks');
+      const created = data.result?.created ?? 0;
+      toast.success(`Daily tasks generated. Created: ${created}`);
+      await fetchTasks(token);
+    } catch (e) {
+      toast.error(e.message || 'Failed to generate daily tasks');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -81,6 +106,13 @@ export default function AdminTasks() {
               className="text-sm text-white hover:text-mint-cream transition-smooth"
             >
               Back to Admin
+            </button>
+            <button
+              onClick={handleGenerateDaily}
+              disabled={busy}
+              className={`px-4 py-2 rounded-lg font-semibold ${busy ? 'bg-gray-300 text-gray-600' : 'bg-emerald-500 text-white hover-lift'}`}
+            >
+              {busy ? 'Generating…' : 'Generate Today\'s Fixed Tasks'}
             </button>
             <button
               onClick={() => router.push('/admin/tasks/new')}

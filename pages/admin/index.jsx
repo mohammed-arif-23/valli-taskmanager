@@ -161,17 +161,31 @@ export default function AdminDashboard() {
           </div>
 
           <div
-            onClick={() => router.push('/admin/audit')}
+            onClick={() => router.push('/admin/templates')}
             className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover-lift card-interactive fade-in"
             style={{ animationDelay: '0.2s' }}
           >
             <div className="w-12 h-12 gradient-primary rounded-lg flex items-center justify-center mb-4">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold mb-2 text-dark-purple">Audit Logs</h2>
-            <p className="text-gray-600 text-sm">View system audit trail</p>
+            <h2 className="text-lg font-semibold mb-2 text-dark-purple">Templates</h2>
+            <p className="text-gray-600 text-sm">Define fixed daily staff tasks</p>
+          </div>
+
+          <div
+            onClick={() => router.push('/admin/analytics')}
+            className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover-lift card-interactive fade-in"
+            style={{ animationDelay: '0.3s' }}
+          >
+            <div className="w-12 h-12 gradient-primary rounded-lg flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3v18m-4-6l4 4 4-4M7 7l4-4 4 4" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold mb-2 text-dark-purple">Analytics</h2>
+            <p className="text-gray-600 text-sm">Daily completion and compliance</p>
           </div>
         </div>
 
