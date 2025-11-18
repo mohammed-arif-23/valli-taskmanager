@@ -13,8 +13,8 @@ export default function TemplateItemModal({
     description: '',
     type: 'primary',
     priority: 'medium',
-    default_points: 1,
-    due_time_ist: '',
+    default_points: 5,
+    due_time_ist: '23:59',
     allow_late_submission: false,
     active: true,
   });
@@ -37,8 +37,8 @@ export default function TemplateItemModal({
         description: '',
         type: 'primary',
         priority: 'medium',
-        default_points: 1,
-        due_time_ist: '',
+        default_points: 5,
+        due_time_ist: '23:59',
         allow_late_submission: false,
         active: true,
       });
@@ -111,6 +111,7 @@ export default function TemplateItemModal({
                 value={form.due_time_ist}
                 onChange={(e) => setForm({ ...form, due_time_ist: e.target.value })}
                 placeholder="HH:mm"
+                
               />
             </div>
             <div>

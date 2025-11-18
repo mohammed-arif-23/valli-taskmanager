@@ -29,6 +29,7 @@ async function handler(req, res) {
         applies_to_roles,
         department_id,
         assignment_mode,
+        specific_user_ids,
         days_of_week,
         active,
       } = req.body;
@@ -49,6 +50,13 @@ async function handler(req, res) {
         }
       }
 
+      // Validate specific users assignment
+      if ((assignment_mode || 'each_staff') === 'specific_users') {
+        if (!Array.isArray(specific_user_ids) || specific_user_ids.length === 0) {
+          return res.status(400).json({ error: { message: "specific_user_ids must be a non-empty array when assignment_mode is 'specific_users'" } });
+        }
+      }
+
       const template = await TaskTemplate.create({
         name,
         title,
@@ -62,6 +70,7 @@ async function handler(req, res) {
         applies_to_roles: Array.isArray(applies_to_roles) ? applies_to_roles : [],
         department_id: department_id === '' ? null : (department_id || null),
         assignment_mode: assignment_mode || 'each_staff',
+        specific_user_ids: Array.isArray(specific_user_ids) ? specific_user_ids : [],
         days_of_week: Array.isArray(days_of_week) ? days_of_week : [],
         active: active !== undefined ? !!active : true,
         created_by: req.user.userId,

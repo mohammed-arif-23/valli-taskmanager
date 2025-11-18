@@ -46,6 +46,7 @@ async function handler(req, res) {
         'applies_to_roles',
         'department_id',
         'assignment_mode',
+        'specific_user_ids',
         'days_of_week',
         'items',
         'active',
@@ -67,6 +68,10 @@ async function handler(req, res) {
 
         if (f === 'days_of_week') {
           val = Array.isArray(val) ? val.map((n) => Number(n)).filter((n) => !Number.isNaN(n)) : [];
+        }
+
+        if (f === 'specific_user_ids') {
+          val = Array.isArray(val) ? val : [];
         }
 
         if (f === 'items') {
@@ -94,6 +99,13 @@ async function handler(req, res) {
       const effectiveDepartmentId = update.department_id !== undefined ? (update.department_id === '' ? null : update.department_id) : template.department_id;
       if (effectiveAssignment === 'department' && !effectiveDepartmentId) {
         return res.status(400).json({ error: { message: "department_id is required when assignment_mode is 'department'" } });
+      }
+
+      if (effectiveAssignment === 'specific_users') {
+        const effectiveUsers = update.specific_user_ids !== undefined ? update.specific_user_ids : template.specific_user_ids;
+        if (!Array.isArray(effectiveUsers) || effectiveUsers.length === 0) {
+          return res.status(400).json({ error: { message: "specific_user_ids must be a non-empty array when assignment_mode is 'specific_users'" } });
+        }
       }
 
       await template.save();

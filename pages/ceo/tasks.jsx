@@ -6,6 +6,14 @@ import ViewSubmissionModal from '@/components/ViewSubmissionModal';
 
 export default function CEOTasks() {
   const router = useRouter();
+  // Helper to prefill due date-time as today's 23:59 (local)
+  function defaultDueLocal() {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}T23:59`;
+  }
   const [tasks, setTasks] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [departmentUsers, setDepartmentUsers] = useState([]);
@@ -31,13 +39,14 @@ export default function CEOTasks() {
   const [bulkDueIso, setBulkDueIso] = useState('');
   const [bulkMinutes, setBulkMinutes] = useState('');
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     type: 'primary',
     priority: 'medium',
-    default_points: '',
-    due_date_ist: '',
+    default_points: 5,
+    due_date_ist: defaultDueLocal(),
     department_id: '',
     assigned_to: [],
     assign_to_all: true,
@@ -140,17 +149,7 @@ export default function CEOTasks() {
     if (token) fetchData(token);
   };
 
-  const toggleSelectAll = (checked) => {
-    const map = {};
-    if (checked) {
-      tasks.forEach((t) => { map[t._id] = true; });
-    }
-    setSelectedMap(map);
-  };
 
-  const toggleSelectOne = (taskId, checked) => {
-    setSelectedMap((prev) => ({ ...prev, [taskId]: checked }));
-  };
 
   const bulkDeleteSelected = async () => {
     const ids = Object.keys(selectedMap).filter((k) => selectedMap[k]);
@@ -203,6 +202,10 @@ export default function CEOTasks() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.assign_to_all && (!formData.assigned_to || formData.assigned_to.length === 0)) {
+      toast.error('Please select at least one staff member or choose "All staff in department"');
+      return;
+    }
     const token = localStorage.getItem('accessToken');
 
     try {
@@ -234,8 +237,8 @@ export default function CEOTasks() {
           description: '',
           type: 'primary',
           priority: 'medium',
-          default_points: '',
-          due_date_ist: '',
+          default_points: 5,
+          due_date_ist: defaultDueLocal(),
           department_id: '',
           assigned_to: [],
           assign_to_all: true,
@@ -367,8 +370,8 @@ export default function CEOTasks() {
                     description: '',
                     type: 'primary',
                     priority: 'medium',
-                    default_points: '',
-                    due_date_ist: '',
+                    default_points: 5,
+                    due_date_ist: defaultDueLocal(),
                     department_id: '',
                     assigned_to: [],
                     assign_to_all: true,
@@ -531,12 +534,67 @@ export default function CEOTasks() {
                         <span className="text-sm font-semibold text-dark-purple">Specific staff members</span>
                       </label>
                       {!formData.assign_to_all && (
-                        <div className="ml-6 mt-2 p-4 bg-white rounded-lg border-2 border-quinacridone-magenta max-h-48 overflow-y-auto">
-                          {departmentUsers.length === 0 ? (
-                            <p className="text-sm text-gray-500">No staff members in this department</p>
-                          ) : (
-                            <div className="space-y-2">
-                              {departmentUsers.map((user) => (
+                        <div className="ml-6 mt-2 p-4 bg-white rounded-lg border-2 border-quinacridone-magenta">
+                          <div className="flex flex-wrap items-end gap-3 mb-3">
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">Search staff</label>
+                              <input
+                                value={userSearch}
+                                onChange={(e)=>setUserSearch(e.target.value)}
+                                className="px-3 py-2 border rounded min-w-[220px]"
+                                placeholder="Type name or email"
+                              />
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              Selected: <span className="font-semibold text-dark-purple">{formData.assigned_to.length}</span>
+                            </div>
+                            <div className="ml-auto flex gap-2">
+                              <button
+                                type="button"
+                                onClick={()=>{
+                                  // select all filtered users
+                                  const filtered = (departmentUsers||[]).filter(u=>{
+                                    const q = userSearch.trim().toLowerCase();
+                                    if (!q) return true;
+                                    return (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q);
+                                  });
+                                  setFormData({ ...formData, assigned_to: Array.from(new Set([...(formData.assigned_to||[]), ...filtered.map(u=>u.id)])) });
+                                }}
+                                className="px-3 py-2 rounded bg-gray-100"
+                              >Select All</button>
+                              <button
+                                type="button"
+                                onClick={()=>setFormData({ ...formData, assigned_to: [] })}
+                                className="px-3 py-2 rounded bg-gray-100"
+                              >Clear</button>
+                            </div>
+                          </div>
+
+                          {/* Selected chips */}
+                          {formData.assigned_to.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-3">
+                              {formData.assigned_to.map(uid => {
+                                const u = (departmentUsers||[]).find(x=>x.id===uid);
+                                const label = u ? `${u.name} (${u.email})` : uid;
+                                return (
+                                  <span key={uid} className="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs bg-mint-cream border">
+                                    <span className="text-dark-purple">{label}</span>
+                                    <button type="button" onClick={()=>setFormData({ ...formData, assigned_to: formData.assigned_to.filter(id=>id!==uid) })} className="text-red-600">×</button>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {/* List */}
+                          <div className="max-h-48 overflow-y-auto divide-y">
+                            {(departmentUsers||[])
+                              .filter(u=>{
+                                const q = userSearch.trim().toLowerCase();
+                                if (!q) return true;
+                                return (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q);
+                              })
+                              .map((user) => (
                                 <label key={user.id} className="flex items-center gap-2 cursor-pointer hover:bg-mint-cream p-2 rounded">
                                   <input
                                     type="checkbox"
@@ -561,8 +619,10 @@ export default function CEOTasks() {
                                   </span>
                                 </label>
                               ))}
-                            </div>
-                          )}
+                            {departmentUsers.length === 0 && (
+                              <p className="text-sm text-gray-500 p-2">No staff members in this department</p>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>

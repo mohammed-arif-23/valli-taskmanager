@@ -62,8 +62,14 @@ const taskTemplateSchema = new mongoose.Schema({
   // Whether to create a task per individual staff or a department-level task
   assignment_mode: {
     type: String,
-    enum: ['each_staff', 'department'],
+    enum: ['each_staff', 'department', 'specific_users'],
     default: 'each_staff',
+  },
+  // When assignment_mode is specific_users, tasks will be created only for these users
+  specific_user_ids: {
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: 'User',
+    default: [],
   },
   // For weekly schedules (0=Sun..6=Sat); reserved for future use
   days_of_week: {
@@ -128,4 +134,17 @@ taskTemplateSchema.pre('save', function (next) {
   next();
 });
 
-module.exports = mongoose.models.TaskTemplate || mongoose.model('TaskTemplate', taskTemplateSchema);
+// In dev, Next.js API routes can hot-reload, so ensure we drop the old compiled model
+try {
+  if (mongoose.models.TaskTemplate) {
+    if (typeof mongoose.deleteModel === 'function') {
+      mongoose.deleteModel('TaskTemplate');
+    } else {
+      delete mongoose.models.TaskTemplate;
+    }
+  }
+} catch (e) {
+  // ignore
+}
+
+module.exports = mongoose.model('TaskTemplate', taskTemplateSchema);
