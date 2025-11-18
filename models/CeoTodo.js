@@ -21,10 +21,10 @@ const ceoTodoSchema = new mongoose.Schema({
     index: true,
   },
   start_time: {
-    type: String, // Format: "HH:MM"
+    type: String, 
   },
   end_time: {
-    type: String, // Format: "HH:MM"
+    type: String, 
   },
   completed: {
     type: Boolean,

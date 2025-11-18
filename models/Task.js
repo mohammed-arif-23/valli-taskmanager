@@ -36,7 +36,7 @@ const taskSchema = new mongoose.Schema({
   assigned_to: {
     type: [mongoose.Schema.Types.ObjectId],
     ref: 'User',
-    default: [], // Empty array means assigned to all in department
+    default: [], 
   },
   recurrence: {
     type: mongoose.Schema.Types.Mixed,
@@ -67,18 +67,15 @@ const taskSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
-  // Link back to template when auto-generated
   source_template_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'TaskTemplate',
     default: null,
   },
-  // Link back to specific template item when using multi-item templates
   source_template_item_id: {
     type: mongoose.Schema.Types.ObjectId,
     default: null,
   },
-  // The IST calendar day this task belongs to (stored as UTC instant at IST midnight)
   occurrence_date: {
     type: Date,
     default: null,
@@ -89,12 +86,9 @@ const taskSchema = new mongoose.Schema({
   },
 });
 
-// Compound indexes for efficient queries
 taskSchema.index({ due_at_utc: 1, department_id: 1, is_archived: 1 });
 taskSchema.index({ department_id: 1, is_archived: 1 });
 taskSchema.index({ source_template_id: 1, source_template_item_id: 1, occurrence_date: 1, department_id: 1, assigned_to: 1 });
-
-// Pre-save hook to increment row_version and update updated_at
 taskSchema.pre('save', function (next) {
   this.updated_at = new Date();
   if (!this.isNew) {

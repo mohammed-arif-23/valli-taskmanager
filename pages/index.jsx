@@ -30,8 +30,14 @@ export default function Dashboard() {
       return;
     }
 
-    setUser(JSON.parse(userData));
-    fetchData(token, JSON.parse(userData));
+    const parsed = JSON.parse(userData);
+    // If CEO, redirect to CEO dashboard and do not render staff UI
+    if (parsed.role === 'ceo') {
+      router.push('/ceo');
+      return;
+    }
+    setUser(parsed);
+    fetchData(token, parsed);
   }, [showArchived, router.query.refresh]);
 
   const fetchData = async (token, userData) => {
@@ -155,37 +161,7 @@ export default function Dashboard() {
       <nav className="gradient-primary shadow-lg">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-white">Task Manager</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-mint-cream font-medium">{user?.name}</span>
-            <button
-              onClick={() => router.push('/leaderboard')}
-              className="text-sm text-white hover:text-mint-cream transition-smooth flex items-center gap-1"
-            >
-              🏆 Leaderboard
-            </button>
-            {(user?.role === 'administrator' || user?.role === 'manager') && (
-              <button
-                onClick={() => router.push('/admin')}
-                className="text-sm text-white hover:text-mint-cream transition-smooth"
-              >
-                Admin Panel
-              </button>
-            )}
-            {user?.role === 'ceo' && (
-              <button
-                onClick={() => router.push('/ceo')}
-                className="text-sm text-white hover:text-mint-cream transition-smooth"
-              >
-                CEO Dashboard
-              </button>
-            )}
-            <button
-              onClick={handleLogout}
-              className="text-sm text-white hover:text-red-200 transition-smooth"
-            >
-              Logout
-            </button>
-          </div>
+          {/* Navbar simplified: removed user action buttons for a cleaner user view */}
         </div>
       </nav>
 

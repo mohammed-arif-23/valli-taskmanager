@@ -121,8 +121,7 @@ const taskTemplateSchema = new mongoose.Schema({
 taskTemplateSchema.index({ created_by: 1, created_at: -1 });
 taskTemplateSchema.index({ frequency: 1, active: 1 });
 taskTemplateSchema.index({ department_id: 1, active: 1 });
-// Useful when sorting items for UI
-// Note: MongoDB cannot index inside arrays with sort across all docs meaningfully here; UI will sort client-side by sort_order.
+
 
 taskTemplateSchema.pre('save', function (next) {
   this.updated_at = new Date();

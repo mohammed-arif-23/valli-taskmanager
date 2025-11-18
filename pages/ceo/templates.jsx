@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import { toast } from 'react-toastify';
 import AdminTemplateEditor from '@/components/AdminTemplateEditor';
+import TemplateItemModal from '@/components/TemplateItemModal';
 
 export default function CeoTemplates() {
   const router = useRouter();
@@ -15,6 +16,8 @@ export default function CeoTemplates() {
   const [departments, setDepartments] = useState([]);
   const [selectedDept, setSelectedDept] = useState('');
   const [itemsDraft, setItemsDraft] = useState([]);
+  const [itemModalOpen, setItemModalOpen] = useState(false);
+  const [editingIndex, setEditingIndex] = useState(null); // null => creating
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -36,6 +39,13 @@ export default function CeoTemplates() {
   const fetchTemplates = async (token) => {
     try {
       const res = await fetch('/api/admin/templates', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) {
+        toast.error('Session expired. Please login again.');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        router.push('/login');
+        return;
+      }
       if (!res.ok) throw new Error('Failed to load');
       const data = await res.json();
       setTemplates(data.templates || []);
@@ -55,6 +65,13 @@ export default function CeoTemplates() {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (res.status === 401) {
+        toast.error('Session expired. Please login again.');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        router.push('/login');
+        return;
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || 'Delete failed');
       toast.success('Template deleted');
@@ -77,6 +94,13 @@ export default function CeoTemplates() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
       });
+      if (res.status === 401) {
+        toast.error('Session expired. Please login again.');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        router.push('/login');
+        return;
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || 'Create failed');
       toast.success('Template created');
@@ -101,6 +125,13 @@ export default function CeoTemplates() {
   const fetchDepartments = async (token) => {
     try {
       const res = await fetch('/api/ceo/departments', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) {
+        toast.error('Session expired. Please login again.');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        router.push('/login');
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setDepartments(data.departments || []);
@@ -130,6 +161,13 @@ export default function CeoTemplates() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
       });
+      if (res.status === 401) {
+        toast.error('Session expired. Please login again.');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        router.push('/login');
+        return;
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || 'Update failed');
       toast.success('Template updated');
@@ -168,24 +206,46 @@ export default function CeoTemplates() {
   };
 
   const addItem = () => {
-    updateItemsLocal((items) => [
-      ...items,
-      {
-        title: 'New Item',
-        description: '',
-        type: 'primary',
-        priority: 'medium',
-        default_points: 1,
-        due_time_ist: '',
-        allow_late_submission: false,
-        active: true,
-        sort_order: items.length,
-      },
-    ]);
+    setEditingIndex(null);
+    setItemModalOpen(true);
   };
 
   const saveItemInlineLocal = (idx, patch) => {
     updateItemsLocal((items) => items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  };
+
+  const openEditItemModal = (idx) => {
+    setEditingIndex(idx);
+    setItemModalOpen(true);
+  };
+
+  const handleSaveItem = (item) => {
+    setItemsDraft((prev) => {
+      const items = Array.isArray(prev) ? [...prev] : [];
+      if (editingIndex === null || editingIndex === undefined) {
+        // create
+        items.push({
+          ...item,
+          sort_order: items.length,
+        });
+      } else {
+        items[editingIndex] = { ...items[editingIndex], ...item };
+      }
+      // normalize sort_order
+      return items.map((it, i) => ({ ...it, sort_order: i }));
+    });
+    setItemModalOpen(false);
+    setEditingIndex(null);
+  };
+
+  const handleDeleteItem = () => {
+    if (editingIndex === null || editingIndex === undefined) {
+      setItemModalOpen(false);
+      return;
+    }
+    updateItemsLocal((items) => items.filter((_, i) => i !== editingIndex).map((it, i) => ({ ...it, sort_order: i })));
+    setItemModalOpen(false);
+    setEditingIndex(null);
   };
 
   const reorder = (from, to) => {
@@ -218,6 +278,13 @@ export default function CeoTemplates() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ preview, force, template_id: templateId, department_id: selectedDept || null }),
       });
+      if (res.status === 401) {
+        toast.error('Session expired. Please login again.');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        router.push('/login');
+        return;
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || 'Failed');
       const created = data.result?.created ?? 0;
@@ -348,29 +415,20 @@ export default function CeoTemplates() {
                               <input type="checkbox" checked={!!bulkSelection[String(it._id || it.title+it.sort_order)]} onChange={(e) => setBulkSelection({ ...bulkSelection, [String(it._id || it.title+it.sort_order)]: e.target.checked })} />
                             </td>
                             <td className="py-2 px-2">
-                              <input className="border-2 px-3 py-2 rounded w-full focus:outline-none focus:border-palatinate" value={it.title} onChange={(e) => saveItemInlineLocal(idx, { title: e.target.value })} />
-                              <textarea className="border-2 px-3 py-2 rounded w-full mt-2 text-sm focus:outline-none focus:border-palatinate" rows={2} placeholder="Description" value={it.description || ''} onChange={(e) => saveItemInlineLocal(idx, { description: e.target.value })} />
+                              <div className="font-medium text-dark-purple">{it.title}</div>
+                              {it.description ? (
+                                <div className="text-xs text-gray-600 mt-1 line-clamp-2">{it.description}</div>
+                              ) : null}
                             </td>
-                            <td className="py-2 px-2 w-24">
-                              <input type="number" min={1} className="border-2 px-3 py-2 rounded w-full focus:outline-none focus:border-palatinate" value={it.default_points || 1} onChange={(e) => saveItemInlineLocal(idx, { default_points: Number(e.target.value) })} />
-                            </td>
-                            <td className="py-2 px-2 w-32">
-                              <select className="border-2 px-3 py-2 rounded w-full focus:outline-none focus:border-palatinate" value={it.priority || 'medium'} onChange={(e) => saveItemInlineLocal(idx, { priority: e.target.value })}>
-                                <option value="low">low</option>
-                                <option value="medium">medium</option>
-                                <option value="high">high</option>
-                              </select>
-                            </td>
-                            <td className="py-2 px-2 w-28">
-                              <input placeholder="HH:mm" className="border-2 px-3 py-2 rounded w-full focus:outline-none focus:border-palatinate" value={it.due_time_ist || ''} onChange={(e) => saveItemInlineLocal(idx, { due_time_ist: e.target.value })} />
-                            </td>
-                            <td className="py-2 px-2 text-center w-20">
-                              <input type="checkbox" checked={it.active !== false} onChange={(e) => saveItemInlineLocal(idx, { active: e.target.checked })} />
-                            </td>
+                            <td className="py-2 px-2 w-24">{it.default_points || 1}</td>
+                            <td className="py-2 px-2 w-32 capitalize">{it.priority || 'medium'}</td>
+                            <td className="py-2 px-2 w-28">{it.due_time_ist || '-'}</td>
+                            <td className="py-2 px-2 text-center w-20">{it.active !== false ? 'Yes' : 'No'}</td>
                             <td className="py-2 px-2 text-center">
                               <div className="flex justify-center gap-2">
                                 <button onClick={() => reorder(idx, Math.max(0, idx-1))} className="text-sm text-gray-600">↑</button>
                                 <button onClick={() => reorder(idx, idx+1)} className="text-sm text-gray-600">↓</button>
+                                <button onClick={() => openEditItemModal(idx)} className="text-sm text-palatinate">Edit</button>
                                 <button onClick={() => duplicateItem(idx)} className="text-sm text-blue-600">Duplicate</button>
                                 <button onClick={() => removeItem(idx)} className="text-sm text-red-600">Delete</button>
                               </div>
@@ -390,6 +448,16 @@ export default function CeoTemplates() {
           )}
         </div>
       </main>
+      {itemModalOpen && (
+        <TemplateItemModal
+          open={itemModalOpen}
+          title={editingIndex === null || editingIndex === undefined ? 'Add Item' : 'Edit Item'}
+          initialItem={editingIndex === null || editingIndex === undefined ? null : itemsDraft[editingIndex]}
+          onSave={handleSaveItem}
+          onDelete={editingIndex === null || editingIndex === undefined ? undefined : handleDeleteItem}
+          onClose={() => { setItemModalOpen(false); setEditingIndex(null); }}
+        />
+      )}
     </div>
   );
 }

@@ -54,7 +54,6 @@ const taskSubmissionSchema = new mongoose.Schema({
   },
 });
 
-// Compound indexes for efficient queries
 taskSubmissionSchema.index({ user_id: 1, task_id: 1, created_at: -1 });
 taskSubmissionSchema.index({ task_id: 1, created_at: -1 });
 

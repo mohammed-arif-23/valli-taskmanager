@@ -44,7 +44,6 @@ const settingsSchema = new mongoose.Schema({
   },
 });
 
-// Pre-save hook to increment row_version and update updated_at
 settingsSchema.pre('save', function (next) {
   this.updated_at = new Date();
   if (!this.isNew) {

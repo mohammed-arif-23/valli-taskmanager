@@ -42,6 +42,13 @@ async function handler(req, res) {
         return res.status(400).json({ error: { message: "due_time_ist is required when frequency is 'daily'" } });
       }
 
+      // Validate department assignment
+      if ((assignment_mode || 'each_staff') === 'department') {
+        if (!department_id || department_id === '') {
+          return res.status(400).json({ error: { message: "department_id is required when assignment_mode is 'department'" } });
+        }
+      }
+
       const template = await TaskTemplate.create({
         name,
         title,

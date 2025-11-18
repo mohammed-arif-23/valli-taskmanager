@@ -23,12 +23,17 @@ async function handler(req, res) {
       });
     }
 
-    // Calculate total allocated points (all non-archived tasks in user's department)
+    // Calculate total allocated points for this user only:
+    // include tasks assigned directly to the user OR department-level tasks (assigned_to is empty)
     const allTasks = await Task.find({
       department_id: user.department_id,
       is_archived: false,
+      $or: [
+        { assigned_to: user._id },
+        { assigned_to: { $size: 0 } },
+      ],
     });
-    const allocatedPoints = allTasks.reduce((sum, task) => sum + task.default_points, 0);
+    const allocatedPoints = allTasks.reduce((sum, task) => sum + (task.default_points || 0), 0);
 
     // Calculate total received points (sum of points_awarded from user's submissions)
     const submissions = await TaskSubmission.find({ user_id: id });

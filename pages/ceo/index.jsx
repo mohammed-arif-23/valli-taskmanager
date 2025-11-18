@@ -117,6 +117,8 @@ export default function CEODashboard() {
               Logout
             </button>
           </div>
+
+          {/* Quick links moved into main quick actions grid */}
         </div>
       </nav>
 
@@ -190,6 +192,48 @@ export default function CEODashboard() {
             </div>
             <h2 className="text-lg font-semibold mb-2 text-dark-purple">Manage Submissions</h2>
             <p className="text-gray-600 text-sm">View and delete task submissions</p>
+          </div>
+
+          {/* Department Dashboard */}
+          <div
+            onClick={() => router.push('/ceo/department-dashboard')}
+            className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover-lift card-interactive fade-in"
+          >
+            <div className="w-12 h-12 gradient-primary rounded-lg flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M5 6h14M7 14h10M9 18h6" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold mb-2 text-dark-purple">Department Dashboard</h2>
+            <p className="text-gray-600 text-sm">KPIs by department (completion, overdue, not started)</p>
+          </div>
+
+          {/* Leaderboards */}
+          <div
+            onClick={() => router.push('/ceo/leaderboard')}
+            className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover-lift card-interactive fade-in"
+          >
+            <div className="w-12 h-12 gradient-primary rounded-lg flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10l4-2 4 2 4-2 4 2v8l-4 2-4-2-4 2-4-2z" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold mb-2 text-dark-purple">Leaderboards</h2>
+            <p className="text-gray-600 text-sm">Departments and Users (lifetime/quarterly)</p>
+          </div>
+
+          {/* Analytics (Heatmap) */}
+          <div
+            onClick={() => router.push('/ceo/analytics')}
+            className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover-lift card-interactive fade-in"
+          >
+            <div className="w-12 h-12 gradient-primary rounded-lg flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3v18M3 11h18" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold mb-2 text-dark-purple">Analytics (Heatmap)</h2>
+            <p className="text-gray-600 text-sm">SLA heatmap by day+hour</p>
           </div>
         </div>
 

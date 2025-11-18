@@ -18,6 +18,7 @@ export default function AdminTemplateEditor({ onSave, initialValues = null, onCa
     active: true,
   });
   const [busy, setBusy] = useState(false);
+  const [departments, setDepartments] = useState([]);
   const isDaily = form.frequency === 'daily';
   const isWeekly = form.frequency === 'weekly';
   const dailyMissingDue = isDaily && !(form.due_time_ist && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(form.due_time_ist));
@@ -44,6 +45,30 @@ export default function AdminTemplateEditor({ onSave, initialValues = null, onCa
       });
     }
   }, [initialValues]);
+
+  // Fetch departments for department assignment mode
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    if (!token) return;
+    (async () => {
+      try {
+        const res = await fetch('/api/ceo/departments', { headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok) {
+          const data = await res.json();
+          setDepartments(Array.isArray(data.departments) ? data.departments : []);
+        }
+      } catch (e) {
+        // ignore fetch errors here
+      }
+    })();
+  }, []);
+
+  // When switching away from department mode, clear department_id to avoid accidental scoping
+  useEffect(() => {
+    if (form.assignment_mode !== 'department' && form.department_id) {
+      setForm((prev) => ({ ...prev, department_id: '' }));
+    }
+  }, [form.assignment_mode]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -143,10 +168,40 @@ export default function AdminTemplateEditor({ onSave, initialValues = null, onCa
           <label className="block text-sm font-medium text-gray-700">Applies to Roles (comma-separated)</label>
           <input value={form.applies_to_roles.join(', ')} onChange={handleRolesChange} className="mt-1 w-full border-2 rounded-lg px-3 py-2" />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Department ID (optional)</label>
-          <input name="department_id" value={form.department_id} onChange={handleChange} className="mt-1 w-full border-2 rounded-lg px-3 py-2" />
-        </div>
+        {form.assignment_mode === 'department' ? (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Department</label>
+            <select
+              name="department_id"
+              value={form.department_id || ''}
+              onChange={handleChange}
+              className="mt-1 w-full border-2 rounded-lg px-3 py-2"
+              required
+            >
+              <option value="" disabled>Select a department</option>
+              {departments.map((d) => (
+                <option key={d._id || d.id} value={d._id || d.id}>{d.name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">Tasks from this template will apply only to the selected department.</p>
+          </div>
+        ) : (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Department (optional)</label>
+            <select
+              name="department_id"
+              value={form.department_id || ''}
+              onChange={handleChange}
+              className="mt-1 w-full border-2 rounded-lg px-3 py-2"
+            >
+              <option value="">All Departments</option>
+              {departments.map((d) => (
+                <option key={d._id || d.id} value={d._id || d.id}>{d.name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">If set, tasks will be scoped to this department; leave blank to apply across all.</p>
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-gray-700">Days of Week (0-6, comma)</label>
           <input value={form.days_of_week.join(', ')} onChange={handleDaysChange} className="mt-1 w-full border-2 rounded-lg px-3 py-2" />

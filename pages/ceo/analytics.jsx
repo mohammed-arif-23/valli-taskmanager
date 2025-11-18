@@ -13,6 +13,11 @@ export default function CeoAnalytics() {
   const [filterTemplate, setFilterTemplate] = useState('');
   const [departments, setDepartments] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [heatmap, setHeatmap] = useState({ buckets: [] });
+  const [heatStart, setHeatStart] = useState('');
+  const [heatEnd, setHeatEnd] = useState('');
+  const [presets, setPresets] = useState([]);
+  const [selectedPreset, setSelectedPreset] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
@@ -24,6 +29,7 @@ export default function CeoAnalytics() {
     fetchOptions(token).then(() => {
       fetchDaily(token);
       fetchTrends(token, days);
+      fetchHeatmap(token);
     });
   }, []);
 
@@ -40,6 +46,21 @@ export default function CeoAnalytics() {
       toast.error(e.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchHeatmap = async (token) => {
+    try {
+      const q = new URLSearchParams();
+      if (filterDept) q.append('department_id', filterDept);
+      if (heatStart) q.append('start', `${heatStart}T00:00:00.000Z`);
+      if (heatEnd) q.append('end', `${heatEnd}T23:59:59.999Z`);
+      const res = await fetch(`/api/ceo/analytics/heatmap?${q.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Failed to load heatmap');
+      setHeatmap({ buckets: data.buckets || [] });
+    } catch (e) {
+      // non-fatal
     }
   };
 
@@ -82,6 +103,36 @@ export default function CeoAnalytics() {
     const token = localStorage.getItem('accessToken');
     await fetchDaily(token);
     await fetchTrends(token, days);
+    await fetchHeatmap(token);
+  };
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('ceo_analytics_presets');
+      if (raw) setPresets(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  const savePreset = () => {
+    const name = prompt('Preset name');
+    if (!name) return;
+    const p = { name, department_id: filterDept, template_id: filterTemplate, heatStart, heatEnd, days };
+    const next = [...presets.filter(x => x.name !== name), p];
+    setPresets(next);
+    localStorage.setItem('ceo_analytics_presets', JSON.stringify(next));
+    setSelectedPreset(name);
+  };
+
+  const applyPreset = async (name) => {
+    const p = presets.find(x => x.name === name);
+    if (!p) return;
+    setSelectedPreset(name);
+    setFilterDept(p.department_id || '');
+    setFilterTemplate(p.template_id || '');
+    setHeatStart(p.heatStart || '');
+    setHeatEnd(p.heatEnd || '');
+    setDays(p.days || 14);
+    await refresh();
   };
 
   const perTemplate = daily?.per_template || [];
@@ -139,6 +190,64 @@ export default function CeoAnalytics() {
               </select>
             </div>
           </div>
+        </section>
+
+        <section className="bg-white rounded-xl shadow p-6">
+          <div className="flex items-end gap-3 mb-4">
+            <h2 className="text-xl font-bold text-dark-purple flex-1">SLA · Missed vs Completed by Hour (IST)</h2>
+            <div>
+              <label className="block text-xs text-gray-600">Start</label>
+              <input type="date" value={heatStart} onChange={(e)=>setHeatStart(e.target.value)} className="border px-2 py-1 rounded" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600">End</label>
+              <input type="date" value={heatEnd} onChange={(e)=>setHeatEnd(e.target.value)} className="border px-2 py-1 rounded" />
+            </div>
+            <button onClick={()=>{ const token = localStorage.getItem('accessToken'); fetchHeatmap(token); }} className="px-3 py-2 rounded bg-palatinate text-white">Apply</button>
+          </div>
+          <div className="flex items-center gap-2 mb-3">
+            <label className="text-sm text-gray-600">Presets</label>
+            <select value={selectedPreset} onChange={(e)=>applyPreset(e.target.value)} className="border px-2 py-1 rounded min-w-[200px]">
+              <option value="">Select preset</option>
+              {presets.map((p)=>(<option key={p.name} value={p.name}>{p.name}</option>))}
+            </select>
+            <button onClick={savePreset} className="px-3 py-1 rounded bg-gray-200">Save</button>
+          </div>
+          {heatmap.buckets.length === 0 ? (
+            <p className="text-gray-500">No data</p>
+          ) : (
+            <div className="overflow-auto">
+              <table className="min-w-[900px] w-full">
+                <thead>
+                  <tr>
+                    <th className="text-left text-xs text-gray-500 py-1 px-2">Day/Hour</th>
+                    {Array.from({length:24},(_,h)=> (
+                      <th key={h} className="text-center text-xs text-gray-500 py-1 px-1">{String(h).padStart(2,'0')}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({length:7},(_,d)=>d).map(dow => (
+                    <tr key={dow}>
+                      <td className="text-xs text-gray-600 py-1 px-2 font-medium">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dow]}</td>
+                      {Array.from({length:24},(_,h)=>{
+                        const b = heatmap.buckets.find(x=>x.dow===dow && x.hour===h) || { missed:0, completed:0 };
+                        const total = (b.missed||0)+(b.completed||0);
+                        const missPct = total>0 ? Math.round((b.missed/total)*100) : 0;
+                        const color = missPct>66 ? '#fecaca' : missPct>33 ? '#fde68a' : '#bbf7d0';
+                        const title = `Hour ${String(h).padStart(2,'0')}:00\nMissed: ${b.missed||0}\nCompleted: ${b.completed||0}\nMiss%: ${missPct}%`;
+                        return (
+                          <td key={h} title={title} className="py-1 px-1">
+                            <div className="w-6 h-6 rounded" style={{ backgroundColor: color }} />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
         <section className="bg-white rounded-xl shadow p-6">
           <h2 className="text-xl font-bold text-dark-purple mb-4">Today · Per-template Completion</h2>

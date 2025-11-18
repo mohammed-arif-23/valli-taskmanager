@@ -89,6 +89,13 @@ async function handler(req, res) {
         template[f] = val;
       });
 
+      // After applying incoming updates, validate department assignment mode
+      const effectiveAssignment = update.assignment_mode !== undefined ? update.assignment_mode : template.assignment_mode;
+      const effectiveDepartmentId = update.department_id !== undefined ? (update.department_id === '' ? null : update.department_id) : template.department_id;
+      if (effectiveAssignment === 'department' && !effectiveDepartmentId) {
+        return res.status(400).json({ error: { message: "department_id is required when assignment_mode is 'department'" } });
+      }
+
       await template.save();
 
       await createAuditLog('task_template', id, 'update', req.user.userId, {
