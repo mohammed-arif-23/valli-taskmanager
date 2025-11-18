@@ -194,7 +194,6 @@ export default function CEODashboard() {
             <p className="text-gray-600 text-sm">View and delete task submissions</p>
           </div>
 
-          {/* Department Dashboard */}
           <div
             onClick={() => router.push('/ceo/department-dashboard')}
             className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover-lift card-interactive fade-in"

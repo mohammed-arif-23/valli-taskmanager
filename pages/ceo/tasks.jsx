@@ -30,6 +30,7 @@ export default function CEOTasks() {
   const [bulkUsersCsv, setBulkUsersCsv] = useState('');
   const [bulkDueIso, setBulkDueIso] = useState('');
   const [bulkMinutes, setBulkMinutes] = useState('');
+  const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -64,7 +65,10 @@ export default function CEOTasks() {
 
   const fetchData = async (token) => {
     try {
-      const tasksUrl = selectedDeptFilter ? `/api/ceo/tasks?department_id=${encodeURIComponent(selectedDeptFilter)}` : '/api/ceo/tasks';
+      let tasksUrl = selectedDeptFilter ? `/api/ceo/tasks?department_id=${encodeURIComponent(selectedDeptFilter)}` : '/api/ceo/tasks';
+      if (showArchivedTasks) {
+        tasksUrl += (tasksUrl.includes('?') ? '&' : '?') + 'is_archived=true';
+      }
       // Build filtered submissions URL
       const params = new URLSearchParams();
       if (selectedDeptFilter) params.set('department_id', selectedDeptFilter);
@@ -638,6 +642,20 @@ export default function CEOTasks() {
                 onChange={(e) => setEndDate(e.target.value)}
                 className="px-3 py-2 border-2 rounded-lg"
               />
+            </div>
+            <div className="flex items-center gap-2 mb-1">
+              <input
+                id="show-archived"
+                type="checkbox"
+                checked={showArchivedTasks}
+                onChange={(e)=>{
+                  setShowArchivedTasks(e.target.checked);
+                  const token = localStorage.getItem('accessToken');
+                  if (token) fetchData(token);
+                }}
+                className="w-4 h-4"
+              />
+              <label htmlFor="show-archived" className="text-sm text-gray-700">Show Archived Tasks (for edit/delete)</label>
             </div>
             <button
               onClick={() => {
