@@ -3,25 +3,84 @@ const Task = require('@/models/Task');
 const { requireAuth, requireRole } = require('@/lib/auth');
 const { istToUtc } = require('@/lib/date');
 const { createAuditLog } = require('@/lib/audit');
+const mongoose = require('mongoose');
 
 async function handler(req, res) {
   try {
     await connectDB();
 
     if (req.method === 'GET') {
-      const { department_id, is_archived } = req.query;
+      // Filters: department_id, assigned_to, template_id, is_archived, due_from, due_to, occurrence_date, search
+      // Pagination: page, limit
+      // Sorting: sortBy, sortDir
+      const {
+        department_id,
+        assigned_to,
+        template_id,
+        is_archived,
+        due_from,
+        due_to,
+        occurrence_date,
+        search,
+        page = '1',
+        limit = '20',
+        sortBy = 'created_at',
+        sortDir = 'desc',
+      } = req.query;
+
       const query = {};
-
-      if (department_id) query.department_id = department_id;
+      if (department_id && mongoose.Types.ObjectId.isValid(department_id)) {
+        query.department_id = department_id;
+      }
+      if (assigned_to && mongoose.Types.ObjectId.isValid(assigned_to)) {
+        query.assigned_to = { $in: [assigned_to] };
+      }
+      if (template_id && mongoose.Types.ObjectId.isValid(template_id)) {
+        query.source_template_id = template_id;
+      }
       if (is_archived !== undefined) query.is_archived = is_archived === 'true';
+      if (occurrence_date) {
+        // Filter tasks generated for a specific IST date (stored as UTC date-only in occurrence_date)
+        // Expecting ISO date string (YYYY-MM-DD)
+        const dayStart = new Date(occurrence_date);
+        const dayEnd = new Date(occurrence_date);
+        dayEnd.setUTCHours(23, 59, 59, 999);
+        query.occurrence_date = { $gte: dayStart, $lte: dayEnd };
+      }
+      if (due_from || due_to) {
+        query.due_at_utc = {};
+        if (due_from) query.due_at_utc.$gte = new Date(due_from);
+        if (due_to) query.due_at_utc.$lte = new Date(due_to);
+      }
+      if (search) {
+        query.$or = [
+          { title: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } },
+        ];
+      }
 
-      const tasks = await Task.find(query)
-        .populate('department_id', 'name')
-        .populate('created_by', 'name email')
-        .populate('assigned_to', 'name email')
-        .sort({ created_at: -1 });
+      const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+      const limitNum = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
+      const skip = (pageNum - 1) * limitNum;
 
-      return res.status(200).json({ tasks });
+      const sort = {};
+      const allowedSort = new Set(['created_at', 'updated_at', 'due_at_utc', 'priority']);
+      const dir = String(sortDir).toLowerCase() === 'asc' ? 1 : -1;
+      sort[allowedSort.has(sortBy) ? sortBy : 'created_at'] = dir;
+
+      const [items, total] = await Promise.all([
+        Task.find(query)
+          .populate('department_id', 'name')
+          .populate('created_by', 'name email')
+          .populate('assigned_to', 'name email')
+          .sort(sort)
+          .skip(skip)
+          .limit(limitNum)
+          .lean(),
+        Task.countDocuments(query),
+      ]);
+
+      return res.status(200).json({ items, total, page: pageNum, limit: limitNum });
     }
 
     if (req.method === 'POST') {
@@ -68,4 +127,4 @@ async function handler(req, res) {
   }
 }
 
-export default requireAuth(requireRole('ceo')(handler));
+export default requireAuth(requireRole('ceo', 'administrator', 'manager')(handler));

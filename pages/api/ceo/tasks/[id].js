@@ -13,7 +13,8 @@ async function handler(req, res) {
     if (req.method === 'GET') {
       const task = await Task.findById(id)
         .populate('department_id', 'name')
-        .populate('created_by', 'name email');
+        .populate('created_by', 'name email')
+        .populate('assigned_to', 'name email');
 
       if (!task) {
         return res.status(404).json({ error: { code: 'TASK_NOT_FOUND', message: 'Task not found' } });
@@ -23,11 +24,16 @@ async function handler(req, res) {
     }
 
     if (req.method === 'PATCH') {
-      const updates = req.body;
+      const updates = req.body || {};
       const oldTask = await Task.findById(id);
 
       if (!oldTask) {
         return res.status(404).json({ error: { code: 'TASK_NOT_FOUND', message: 'Task not found' } });
+      }
+
+      // Optimistic concurrency using row_version if provided
+      if (updates.row_version !== undefined && updates.row_version !== oldTask.row_version) {
+        return res.status(409).json({ error: { code: 'VERSION_CONFLICT', message: 'The task was updated by someone else. Please refresh and try again.' } });
       }
 
       // Convert IST to UTC if due_date_ist is provided
@@ -36,8 +42,30 @@ async function handler(req, res) {
         delete updates.due_date_ist;
       }
 
-      // Update task
-      const task = await Task.findByIdAndUpdate(id, updates, { new: true });
+      // Update task (allow selected fields only for safety)
+      const allowed = [
+        'title',
+        'description',
+        'type',
+        'priority',
+        'default_points',
+        'due_at_utc',
+        'department_id',
+        'assigned_to',
+        'allow_late_submission',
+        'is_archived',
+      ];
+      const patch = {};
+      for (const k of allowed) {
+        if (updates[k] !== undefined) patch[k] = updates[k];
+      }
+
+      // Special handling: unarchive sets archived_at null
+      if (patch.is_archived === false) {
+        patch.archived_at = null;
+      }
+
+      const task = await Task.findByIdAndUpdate(id, patch, { new: true });
 
       // Create audit log
       await createAuditLog('task', task._id, 'update', req.user.userId, {
@@ -77,4 +105,4 @@ async function handler(req, res) {
   }
 }
 
-export default requireAuth(requireRole('ceo')(handler));
+export default requireAuth(requireRole('ceo', 'administrator', 'manager')(handler));
