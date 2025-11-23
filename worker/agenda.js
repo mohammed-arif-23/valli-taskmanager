@@ -59,6 +59,17 @@ agenda.define('archive-tasks', async (job) => {
   }
 });
 
+// Define crop job
+agenda.define('crop-job', async (job) => {
+  console.log('Running crop-job...');
+  try {
+    // Add your daily job logic here
+    console.log('Crop-job completed successfully.');
+  } catch (error) {
+    console.error('Error in crop-job:', error);
+  }
+});
+
 // Define generate recurring tasks job (idempotent)
 agenda.define('generate-recurring-tasks', async (job) => {
   console.log('Running generate-recurring-tasks job...');
