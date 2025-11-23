@@ -59,17 +59,6 @@ agenda.define('archive-tasks', async (job) => {
   }
 });
 
-// Define crop job
-agenda.define('crop-job', async (job) => {
-  console.log('Running crop-job...');
-  try {
-    const now = new Date();
-    const result = await generateRecurringTasks(now, { force: false });
-    console.log('Daily task generation completed successfully.', result);
-  } catch (error) {
-    console.error('Error in crop-job:', error);
-  }
-});
 
 
 // Start agenda

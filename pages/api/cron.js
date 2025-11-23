@@ -1,6 +1,4 @@
-const { Agenda } = require('agenda');
-
-const agenda = new Agenda({ db: { address: process.env.MONGODB_URI } });
+const { generateRecurringTasks } = require('../../lib/generation');
 
 export default async function handler(req, res) {
   console.log('Cron job request received. Headers:', req.headers);
@@ -14,8 +12,12 @@ export default async function handler(req, res) {
     return res.status(401).json({ message: 'Unauthorized' });
   }
 
-  await agenda.start();
-  await agenda.every('1 day', 'crop-job');
-
-  res.status(200).json({ message: 'Cron job scheduled' });
+  try {
+    const result = await generateRecurringTasks(new Date(), { force: false });
+    console.log('Cron job executed successfully.', result);
+    res.status(200).json({ message: 'Daily tasks generated successfully.', result });
+  } catch (error) {
+    console.error('Error in cron job execution:', error);
+    res.status(500).json({ message: 'Error generating daily tasks.' });
+  }
 }
