@@ -63,24 +63,14 @@ agenda.define('archive-tasks', async (job) => {
 agenda.define('crop-job', async (job) => {
   console.log('Running crop-job...');
   try {
-    // Add your daily job logic here
-    console.log('Crop-job completed successfully.');
+    const now = new Date();
+    const result = await generateRecurringTasks(now, { force: false });
+    console.log('Daily task generation completed successfully.', result);
   } catch (error) {
     console.error('Error in crop-job:', error);
   }
 });
 
-// Define generate recurring tasks job (idempotent)
-agenda.define('generate-recurring-tasks', async (job) => {
-  console.log('Running generate-recurring-tasks job...');
-  try {
-    const now = new Date();
-    const result = await generateRecurringTasks(now);
-    console.log('Recurring generation result:', result);
-  } catch (error) {
-    console.error('Error in generate-recurring-tasks job:', error);
-  }
-});
 
 // Start agenda
 (async function () {
@@ -91,9 +81,6 @@ agenda.define('generate-recurring-tasks', async (job) => {
   await agenda.every('5 minutes', 'archive-tasks');
   console.log('Scheduled archive-tasks job to run every 5 minutes');
 
-  // Run generation frequently; idempotent so safe to run multiple times
-  await agenda.every('30 minutes', 'generate-recurring-tasks');
-  console.log('Scheduled generate-recurring-tasks job to run every 30 minutes');
 })();
 
 // Graceful shutdown
